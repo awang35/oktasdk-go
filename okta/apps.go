@@ -5,17 +5,23 @@ import (
 	"net/url"
 	"time"
 )
-
+const (
+	appUserIDFilter       	 = "user.id"
+)
 // AppsService is a service to retreives applications from OKTA.
 type AppsService service
 
 // AppFilterOptions is used to generate a "Filter" to search for different Apps
 // The values here coorelate to API Search paramgters on the group API
 type AppFilterOptions struct {
+	UserIDEqualTo string   `url:"-"`
+
+	FilterString  string     `url:"filter,omitempty"`
 	NextURL       *url.URL `url:"-"`
 	GetAllPages   bool     `url:"-"`
 	NumberOfPages int      `url:"-"`
 	Limit         int      `url:"limit,omitempty"`
+	ExpandUser        string      `url:"expand,omitempty"`
 }
 
 // App is the Model for an OKTA Application
@@ -83,6 +89,9 @@ type App struct {
 			AttributeStatements   []interface{} `json:"attributeStatements"`
 		} `json:"signOn"`
 	} `json:"settings"`
+	Embedded struct {
+		User AppUser `json:"user"`
+	} `json:"_embedded"`
 	Links struct {
 		Logo []struct {
 			Name string `json:"name"`
@@ -119,7 +128,7 @@ func (a App) String() string {
 	return fmt.Sprintf("App:(ID: {%v} - Name: {%v})\n", a.ID, a.Name)
 }
 
-// GetByID gets a group from OKTA by the Gropu ID. An error is returned if the group is not found
+// GetByID gets a group from OKTA by the Group ID. An error is returned if the group is not found
 func (a *AppsService) GetByID(appID string) (*App, *Response, error) {
 
 	u := fmt.Sprintf("apps/%v", appID)
@@ -144,6 +153,8 @@ func (a *AppsService) GetByID(appID string) (*App, *Response, error) {
 type AppUser struct {
 	ID              string     `json:"id"`
 	ExternalID      string     `json:"externalId"`
+	Name 			string     `json:"name"`
+	Label 			string	   `json:"label"`
 	Created         time.Time  `json:"created"`
 	LastUpdated     time.Time  `json:"lastUpdated"`
 	Scope           string     `json:"scope"`
@@ -152,6 +163,21 @@ type AppUser struct {
 	PasswordChanged *time.Time `json:"passwordChanged"`
 	SyncState       string     `json:"syncState"`
 	LastSync        *time.Time `json:"lastSync"`
+	Accessibility   struct{
+		SelfService		bool	`json:"selfService"`
+		ErrorRedirectURL string	`json:"errorRedirectURL"`
+		LoginRedirectURL string `json:"loginRedirectURL"`
+	} `json:"accessibility"`
+	Visibility struct{
+		AutoSubmitToolbar	bool `json:"autoSubmitToolbar"`
+		Hide				struct{
+			iOS				bool `json:"iOS"`
+			Web				bool  `json:"Web"`
+		}`json:"hide"`
+
+	} `json:visibility`
+	SignOnMode      string		`json:"signOnMode"`
+
 	Credentials     struct {
 		UserName string `json:"userName"`
 		Password struct {
@@ -166,6 +192,7 @@ type AppUser struct {
 		Role             string      `json:"role"`
 		FirstName        string      `json:"firstName"`
 		Profile          string      `json:"profile"`
+		SamlRoles        []string    `json:"samlRoles"`
 	} `json:"profile"`
 	Links struct {
 		App struct {
@@ -312,4 +339,66 @@ func (a *AppsService) GetUser(appID string, userID string) (appUser AppUser, res
 		return appUser, resp, err
 	}
 	return appUser, resp, nil
+}
+
+func (a *AppsService) ListWithFilter(opt *AppFilterOptions) ([]App, *Response, error){
+
+	var u string
+	var err error
+
+	pagesRetreived := 0
+
+	if opt.NextURL != nil {
+		u = opt.NextURL.String()
+	} else {
+		if opt.UserIDEqualTo != "" {
+			opt.FilterString = appendToFilterString(opt.FilterString, appUserIDFilter, FilterEqualOperator, opt.UserIDEqualTo)
+			if opt.ExpandUser != "" {
+				opt.ExpandUser = fmt.Sprintf("user/%v", opt.UserIDEqualTo)
+			}
+		}
+
+
+		if opt.Limit == 0 {
+			opt.Limit = defaultLimit
+		}
+
+		u, err = addOptions("apps", opt)
+
+	}
+	req, err := a.client.NewRequest("GET", u, nil)
+
+	if err != nil {
+		return nil, nil, err
+	}
+	appUser := make([]App, 1)
+	resp, err := a.client.Do(req, &appUser)
+
+	pagesRetreived++
+	if (opt.NumberOfPages > 0 && pagesRetreived < opt.NumberOfPages) || opt.GetAllPages {
+		for {
+
+			if pagesRetreived == opt.NumberOfPages {
+				break
+			}
+			if resp.NextURL != nil {
+
+				var appPage []App
+				pageOpts := new(AppFilterOptions)
+				pageOpts.NextURL = resp.NextURL
+				pageOpts.Limit = opt.Limit
+				pageOpts.NumberOfPages = 1
+
+				appPage, resp, err = a.ListWithFilter(pageOpts)
+				if err != nil {
+					return appUser, resp, err
+				}
+				appUser = append(appUser, appPage...)
+				pagesRetreived++
+			} else {
+				break
+			}
+		}
+	}
+	return appUser, resp, err
 }
