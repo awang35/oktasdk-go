@@ -202,7 +202,6 @@ func (g *GroupsService) GetUsers(groupID string, opt *GroupUserFilterOptions) (u
 	if err != nil {
 		return nil, resp, err
 	}
-
 	pagesRetreived++
 	if (opt.NumberOfPages > 0 && pagesRetreived < opt.NumberOfPages) || opt.GetAllPages {
 

@@ -275,6 +275,10 @@ type AppGroups struct {
 	ID          string    `json:"id"`
 	LastUpdated time.Time `json:"lastUpdated"`
 	Priority    int       `json:"priority"`
+	Profile		struct{
+		Role	string		`json:"role,omitempty"`
+		SamlRoles []string `json:"samlRoles,omitempty"`
+	} `json:"profile,omitempty"`
 	Links       struct {
 		User struct {
 			Href string `json:"href"`

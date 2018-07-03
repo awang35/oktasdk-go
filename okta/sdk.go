@@ -243,25 +243,23 @@ func parseRate(r *http.Response) Rate {
 // first decode it.  If rate limit is exceeded and reset time is in the future,
 // Do returns rate immediately without making a network API call.
 func (c *Client) Do(req *http.Request, v interface{}) (*Response, error) {
-
 	// If we've hit rate limit, don't make further requests before Reset time.
 	if err := c.checkRateLimitBeforeDo(req); err != nil {
 		return nil, err
 	}
 
+
 	resp, err := c.client.Do(req)
 	if err != nil {
 		return nil, err
 	}
-
+	//fmt.Printf("DO REQUEST: Response took: %s\n", elapsed)
 	defer func() {
 		// Drain up to 512 bytes and close the body to let the Transport reuse the connection
 		io.CopyN(ioutil.Discard, resp.Body, 512)
 		resp.Body.Close()
 	}()
-
 	response := newResponse(resp)
-
 	c.rateMu.Lock()
 	c.mostRecentRate.RatePerMinuteLimit = response.Rate.RatePerMinuteLimit
 	c.mostRecentRate.Remaining = response.Rate.Remaining
@@ -301,13 +299,15 @@ func (c *Client) checkRateLimitBeforeDo(req *http.Request) error {
 	c.rateMu.Lock()
 	mostRecentRate := c.mostRecentRate
 	c.rateMu.Unlock()
-	// fmt.Printf("checkRateLimitBeforeDo: \t Remaining = %d, \t ResetTime = %s\n", mostRecentRate.Remaining, mostRecentRate.ResetTime.String())
+	// fmt.Printf("checkRateLimitBeforeDo: \t Remaining = %d, \t ResetTime = %s, \t Pause: %v\n", mostRecentRate.Remaining, mostRecentRate.ResetTime.String(), !mostRecentRate.ResetTime.IsZero() && mostRecentRate.Remaining < c.RateRemainingFloor && time.Now().Before(mostRecentRate.ResetTime) )
+	//fmt.Printf("ARGUMENTS: 1:%v, 2:%v, 3:%v\nCurrent floor: %d\n", !mostRecentRate.ResetTime.IsZero(), mostRecentRate.Remaining < c.RateRemainingFloor, time.Now().Before(mostRecentRate.ResetTime), c.RateRemainingFloor)
+
 	if !mostRecentRate.ResetTime.IsZero() && mostRecentRate.Remaining < c.RateRemainingFloor && time.Now().Before(mostRecentRate.ResetTime) {
 
 		if c.PauseOnRateLimit {
 			// If rate limit is hitting threshold then pause until the rate limit resets
 			//   This behavior is controlled by the client PauseOnRateLimit value
-			// fmt.Printf("checkRateLimitBeforeDo: \t ***pause**** \t Time Now = %s \tPause After = %s\n", time.Now().String(), mostRecentRate.ResetTime.Sub(time.Now().Add(2*time.Second)).String())
+			 //fmt.Printf("checkRateLimitBeforeDo: \t ***pause**** \t Time Now = %s \tPause After = %s\n", time.Now().String(), mostRecentRate.ResetTime.Sub(time.Now().Add(2*time.Second)).String())
 			<-time.After(mostRecentRate.ResetTime.Sub(time.Now().Add(2 * time.Second)))
 		} else {
 			// fmt.Printf("checkRateLimitBeforeDo: \t ***error****\n")
