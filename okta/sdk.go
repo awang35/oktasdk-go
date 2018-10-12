@@ -299,7 +299,7 @@ func (c *Client) checkRateLimitBeforeDo(req *http.Request) error {
 	c.rateMu.Lock()
 	mostRecentRate := c.mostRecentRate
 	c.rateMu.Unlock()
-	// fmt.Printf("checkRateLimitBeforeDo: \t Remaining = %d, \t ResetTime = %s, \t Pause: %v\n", mostRecentRate.Remaining, mostRecentRate.ResetTime.String(), !mostRecentRate.ResetTime.IsZero() && mostRecentRate.Remaining < c.RateRemainingFloor && time.Now().Before(mostRecentRate.ResetTime) )
+	 fmt.Printf("checkRateLimitBeforeDo: \t Remaining = %d, \t ResetTime = %s, \t Pause: %v\n", mostRecentRate.Remaining, mostRecentRate.ResetTime.String(), !mostRecentRate.ResetTime.IsZero() && mostRecentRate.Remaining < c.RateRemainingFloor && time.Now().Before(mostRecentRate.ResetTime) )
 	//fmt.Printf("ARGUMENTS: 1:%v, 2:%v, 3:%v\nCurrent floor: %d\n", !mostRecentRate.ResetTime.IsZero(), mostRecentRate.Remaining < c.RateRemainingFloor, time.Now().Before(mostRecentRate.ResetTime), c.RateRemainingFloor)
 
 	if !mostRecentRate.ResetTime.IsZero() && mostRecentRate.Remaining < c.RateRemainingFloor && time.Now().Before(mostRecentRate.ResetTime) {
@@ -307,7 +307,7 @@ func (c *Client) checkRateLimitBeforeDo(req *http.Request) error {
 		if c.PauseOnRateLimit {
 			// If rate limit is hitting threshold then pause until the rate limit resets
 			//   This behavior is controlled by the client PauseOnRateLimit value
-			 //fmt.Printf("checkRateLimitBeforeDo: \t ***pause**** \t Time Now = %s \tPause After = %s\n", time.Now().String(), mostRecentRate.ResetTime.Sub(time.Now().Add(2*time.Second)).String())
+			 fmt.Printf("checkRateLimitBeforeDo: \t ***pause**** \t Time Now = %s \tPause After = %s\n", time.Now().String(), mostRecentRate.ResetTime.Sub(time.Now().Add(2*time.Second)).String())
 			<-time.After(mostRecentRate.ResetTime.Sub(time.Now().Add(2 * time.Second)))
 		} else {
 			// fmt.Printf("checkRateLimitBeforeDo: \t ***error****\n")

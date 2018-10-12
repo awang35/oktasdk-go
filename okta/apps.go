@@ -290,7 +290,7 @@ type AppGroups struct {
 func (a *AppsService) GetGroups(appID string) (appGroups []AppGroups, resp *Response, err error) {
 
 	var u string
-	u = fmt.Sprintf("apps/%v/groups", appID)
+	u = fmt.Sprintf("apps/%v/groups?limit=100", appID)
 
 	req, err := a.client.NewRequest("GET", u, nil)
 
